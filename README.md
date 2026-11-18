@@ -1,60 +1,61 @@
-# Dis-Enchanting Table → Horizon
+# Dis-Enchanting Table — a Horizon port
 
-Port of **Dis-Enchanting Table 5.0.2** (`Mods-For-Lupin/Dis-Enchanting-Redux`,
-**Unlicense** per the jar's `neoforge.mods.toml`), Minecraft 1.21.1 NeoForge,
-from the exact ATM10 jar: `disenchanting_table-merged-1.21.1-5.0.2.jar`,
-**306,197 B**, SHA-1 `c054a8bef63addff4d4a9520ec4c7a915c3fc1d1` (matches
-Modrinth's file hash for version `UzZnJKSR`), SHA-256
-`bdb4f294f968b0e5bb75fe4b9bfe65563add01da2e34df81ba6c65fb7e77dc9c`.
-Provenance and the carried bytes:
-[`../_shared/carry-work/disenchanting_table/SOURCE.md`](../_shared/carry-work/disenchanting_table/SOURCE.md).
+**Dis-Enchanting Table** is a Minecraft mod. This repository is a **port of it to [Horizon](https://github.com/horizon-rust/horizon)**, the Rust engine for Minecraft Java 26.3. It carries the complete source of the port plus the content files it ships, and installs as a single `.hmod` package.
 
-**Slice 1.** The `disenchanting_table:disenchanting_table` block with its
-three-slot menu (input, book, output), the screen readout, and the
-enchantment transfer — an enchanted item gives its enchantments to a fresh
-enchanted book, or an enchanted book keeps its first and gives the rest — for
-**25 experience points**, the book spent and the item kept.
+Upstream: [Mods-For-Lupin-OLD/Dis-Enchanting-Redux](https://github.com/Mods-For-Lupin-OLD/Dis-Enchanting-Redux) — licence **Unlicense**.
 
-## The package (mod API 0.2, version 0.2.0)
-
-One flat `.hmod` carries the content and the code; `.hnmod` is retired.
-
-| Path | What it is |
+| | |
 |---|---|
-| `horizon-mod.toml` | the only manifest and the only identity: `id`, `version = "0.2.0"`, `api = "0.2"`, `side`, `capabilities`, and `[native]` pinning game 26.3, Horizon `0b14f8a…` and mixins `e59da90…` |
-| `Cargo.toml` | one crate, edition 2024; its only dependency is `horizon-mod-api` from `.horizon/sdk/` (fetched, never packed) |
-| `src/lib.rs` | the one `#[mod_api::horizon_mod] impl Hooks`: `register`, `server_tick`, `register_commands`, `run_mod_command` |
-| `src/runtime.rs` | the pure engine (eligibility, the result plan, the cost model, the slot rules) — byte-identical to the retired `.hnmod` bundle's copy, 16 unit tests |
-| `src/table.rs` | the glue: the block entity/screen Part, the click Part, the menu Part, the declarations, the deferred charge and the readout |
-| `assets/`, `data/` | the carried content — the jar's blockstate, models, textures and lang, the block's tags, a 26.3 re-spelling of the recipe and the loot table, and the port's block/menu/creative-tab declarations |
-| `LICENSE`, `LICENSE-NOTICE.md`, `README.md` | the licence, its provenance and this file, inside the package |
-| `tools/carry_content.py` | re-derives `assets/` + `data/` from the jar (`--check` compares) |
-| `tools/e2e.sh` | the in-game scenario, for a launcher-built game (`GAME=`) |
-| `notes.md`, `FINDINGS.md` | the record: migration map, hook table, gaps, upstream analysis (not packed) |
+| Upstream mod | Dis-Enchanting Table ([source](https://github.com/Mods-For-Lupin-OLD/Dis-Enchanting-Redux)) |
+| Ported to | Horizon 0b14f8a, Minecraft Java 26.3, mod API `0.2` |
+| Package | `disenchanting_table.hmod` (install it with the Horizon launcher) |
+| Licence | **Unlicense** — the upstream mod's licence; see [Licence and credit](#licence-and-credit) |
 
-## Build and verify
+## What this port implements
 
-```sh
-# Every compile runs in a lease; BUILD_LOCAL=1 keeps it on this box.
-BUILD_LOCAL=1 ../tools/build-slot.sh run --job dt-sdk --port ports/disenchanting_table --step test \
-    -- bash -c '[ -f Cargo.toml ] || cd ports/disenchanting_table; cargo test --offline'
-BUILD_LOCAL=1 ../tools/build-slot.sh run --job dt-sdk --port ports/disenchanting_table --step lint \
-    -- bash -c '[ -f Cargo.toml ] || cd ports/disenchanting_table; cargo clippy --all-targets -- -D warnings'
-cargo fmt --check                     # never --all: it would walk the fetched SDK
-rm -f Cargo.lock                      # a packed lock changes the artifact
-cargo horizon-mod build               # -> target/horizon-mod/disenchanting_table.hmod
-cargo horizon-mod check disenchanting_table.hmod
-cargo horizon-mod fits disenchanting_table.hmod --build nightly
+- Move an item's enchantments onto a book for 25 experience points at a Dis-Enchanting Table
+
+## Not yet ported
+
+- **No in-game run at 0.2.0** (trap 14): `tools/e2e.sh` is written for a launcher build and
+- **The old `CONTROL=1` embedded-file leg is gone**: one package is the block, so the control is
+- **The points charge still reads the player by name** in the console line (`xp add <name> -25
+- the **config file** (`automatic_disenchanting`, `automatic_disenchanting_ticks`,
+- the **automatic mode** (a 10-tick auto-dis-enchant) and its data slot;
+- the **dis-enchant sound** and the block's portal particles
+- the **Fabric/Forge halves** of the merged jar (their `ClientConfig`,
+- **per-item `mayPlace` in the hopper path**: `native_container_accepts` is
+
+## Installing
+
+1. Install the [Horizon launcher](https://github.com/horizon-rust/horizon/releases) (0.2.70 or newer).
+2. Add `disenchanting_table.hmod` to the instance's mods.
+3. The package is pinned to a specific Horizon build; the launcher checks that pin.
+
+## Licence and credit
+
+Dis-Enchanting Table was created by its upstream authors; the code, models and assets in the original mod
+remain theirs and are used here under **Unlicense**. The Rust in this repository is a clean-room
+rewrite for Horizon, not a translation of the original source.
+
+- `LICENSE` — the upstream licence text.
+- `LICENSE-NOTICE.md` — what this port carries and where it came from.
+- The upstream project: https://github.com/Mods-For-Lupin-OLD/Dis-Enchanting-Redux
+
+## Technical details
+
+```
+horizon-mod.toml   package manifest (id, version, api, [native] pin)
+Cargo.toml         the crate; depends on `horizon-mod-api` from the fetched SDK
+src/               lib.rs (the one `impl Hooks`), runtime.rs (pure logic + tests), glue
+assets/ data/      the content the package ships
+tools/             content generators and the e2e scenario
 ```
 
-The in-game check needs a launcher-built client carrying the package, which
-this environment does not have:
+- Build: `cargo horizon-mod build` (packages; it does not compile against the game).
+- Test: `cargo test`, `cargo clippy --all-targets -- -D warnings`.
+- In-game: `ports/tools/launcher-game.sh run disenchanting_table` in the campaign tree, or install the
+  `.hmod` and play; the harness scenario is `tools/e2e.sh`.
 
-```sh
-horizon-launcher native-build . --instance <instance> --trust-native-code
-GAME=<that build's horizon-client> tools/e2e.sh          # PASS + E2E EXIT:0
-SELFTEST=1 GAME=… tools/e2e.sh                           # must FAIL (exit 1)
-```
-
-Local-only until publishing is approved; the Unlicense allows redistribution
-with this complete source.
+This repository is generated from the campaign's port at `ports/disenchanting_table/`; the port's own
+`notes.md` is the full record (decisions, traps, evidence).
